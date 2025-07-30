@@ -1,5 +1,5 @@
 """
-data_processing.py - Procesamiento de datos GPS MODIFICADO
+data_processing.py - Procesamiento de datos GPS
 Adaptado para estructura de carpetas anidadas y múltiples vehículos
 """
 import re
@@ -9,7 +9,6 @@ from pathlib import Path
 from datetime import datetime, date
 import config
 
-# Expresiones regulares (SIN CAMBIOS)
 SPEED_EXCESS_RE = re.compile(
     r"Exceso de Velocidad:\s*([0-9]+(?:\.[0-9]+)?)\s*km/h\s+en\s+zona\s+de"
     r"\s*([0-9]+(?:\.[0-9]+)?)\s*km/h",
@@ -18,11 +17,11 @@ SPEED_EXCESS_RE = re.compile(
 MINUTES_RE = re.compile(r"durante\s*(\d+)\s*minutos?", re.IGNORECASE)
 
 def clean_text(text):
-    """Limpia texto de paréntesis y corchetes (SIN CAMBIOS)"""
+    """Limpia texto de paréntesis y corchetes"""
     return re.sub(r"[\\[\\]\\(\\)]", "", str(text)).strip()
 
 def load_excel_file(filepath):
-    """Carga y preprocesa un archivo Excel de GPS (SIN CAMBIOS)"""
+    """Carga y preprocesa un archivo Excel de GPS"""
     df = pd.read_excel(filepath, header=13, engine="openpyxl")
     df.columns = df.columns.str.strip()
     df["Hora"] = pd.to_datetime(df["Hora"], format="%d/%m/%Y %H:%M:%S")
@@ -36,12 +35,7 @@ def load_excel_file(filepath):
         df["Latitud"] = pd.to_numeric(df["Latitud"], errors="coerce")
         df["Longitud"] = pd.to_numeric(df["Longitud"], errors="coerce")
     
-    print(f"\nArchivo: {filepath.name}")
-    print(f"Total registros: {len(df)}")
-    
     return df
-
-# NUEVAS FUNCIONES para manejar estructura de carpetas
 
 def discover_vehicles(base_dir=None):
     """
@@ -69,13 +63,11 @@ def discover_vehicles(base_dir=None):
                         'total_days': 0
                     }
                 else:
-                    # Expandir rango de fechas si es necesario
                     vehicles[vehicle_id]['date_range'][0] = min(vehicles[vehicle_id]['date_range'][0], date_start)
                     vehicles[vehicle_id]['date_range'][1] = max(vehicles[vehicle_id]['date_range'][1], date_end)
                 
                 vehicles[vehicle_id]['folders'].append(folder)
     
-    # Contar días disponibles para cada vehículo
     for vehicle_id in vehicles:
         vehicles[vehicle_id]['total_days'] = count_available_days(vehicle_id, base_dir)
     
@@ -89,7 +81,6 @@ def count_available_days(vehicle_id, base_dir=None):
     daily_pattern = re.compile(config.DAILY_FOLDER_PATTERN)
     available_dates = set()
     
-    # Buscar en todas las carpetas del vehículo
     for folder in Path(base_dir).iterdir():
         if folder.is_dir() and vehicle_id in folder.name:
             for daily_folder in folder.iterdir():
@@ -112,30 +103,24 @@ def find_excel_files_for_vehicle(vehicle_id, start_date=None, end_date=None, bas
     daily_pattern = re.compile(config.DAILY_FOLDER_PATTERN)
     excel_pattern = re.compile(config.EXCEL_FILE_PATTERN)
     
-    # Convertir fechas si son strings
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, config.DATE_FORMAT_FILE).date()
     if isinstance(end_date, str):
         end_date = datetime.strptime(end_date, config.DATE_FORMAT_FILE).date()
     
-    # Buscar en todas las carpetas del vehículo
     for folder in Path(base_dir).iterdir():
         if folder.is_dir() and vehicle_id in folder.name:
-            print(f"Buscando en carpeta: {folder.name}")
-            
             for daily_folder in folder.iterdir():
                 if daily_folder.is_dir():
                     match = daily_pattern.match(daily_folder.name)
                     if match and match.group(2) == vehicle_id:
                         file_date = datetime.strptime(match.group(1), config.DATE_FORMAT_FILE).date()
                         
-                        # Filtrar por rango de fechas si se especifica
                         if start_date and file_date < start_date:
                             continue
                         if end_date and file_date > end_date:
                             continue
                         
-                        # Buscar archivo Excel en la carpeta diaria
                         for file in daily_folder.iterdir():
                             if file.is_file() and excel_pattern.match(file.name):
                                 excel_files.append({
@@ -146,19 +131,13 @@ def find_excel_files_for_vehicle(vehicle_id, start_date=None, end_date=None, bas
                                 })
                                 break
     
-    # Ordenar por fecha
     excel_files.sort(key=lambda x: x['date'])
-    print(f"Encontrados {len(excel_files)} archivos para {vehicle_id}")
-    
     return excel_files
 
 def detect_speed_excesses(df):
-    """Detecta excesos de velocidad (SIN CAMBIOS)"""
+    """Detecta excesos de velocidad"""
     df["Evento_clean"] = df["Evento"].fillna("").apply(clean_text)
     df["is_exceso"] = df["Evento_clean"].apply(lambda t: bool(SPEED_EXCESS_RE.search(t)))
-    
-    num_excesos_detectados = df["is_exceso"].sum()
-    print(f"Registros marcados como exceso: {num_excesos_detectados}")
     
     df["run_id"] = (df["is_exceso"] != df["is_exceso"].shift(1)).cumsum()
     
@@ -193,13 +172,10 @@ def detect_speed_excesses(df):
             "end_idx": end_idx
         })
     
-    print(f"Corridas de exceso detectadas: {len(durations)}")
-    print(f"Duración total de excesos: {sum(durations):.0f} segundos")
-    
     return durations, excesses_info
 
 def calculate_driving_metrics(df, durations, excesses_info):
-    """Calcula métricas de conducción agregadas (SIN CAMBIOS)"""
+    """Calcula métricas de conducción agregadas"""
     fecha = df["Hora"].dt.date.iloc[0]
     
     mov = df[df["Vel_kmh"] > 1]["Vel_kmh"]
@@ -249,7 +225,7 @@ def calculate_driving_metrics(df, durations, excesses_info):
 
 def process_vehicle_files(vehicle_id, start_date=None, end_date=None, base_dir=None):
     """
-    NUEVA FUNCIÓN: Procesa todos los archivos de un vehículo en un rango de fechas
+    Procesa todos los archivos de un vehículo en un rango de fechas
     """
     if base_dir is None:
         base_dir = config.DATA_DIR
@@ -257,25 +233,19 @@ def process_vehicle_files(vehicle_id, start_date=None, end_date=None, base_dir=N
     excel_files = find_excel_files_for_vehicle(vehicle_id, start_date, end_date, base_dir)
     
     if not excel_files:
-        print(f"No se encontraron archivos para {vehicle_id} en el rango especificado")
         return pd.DataFrame(), {}
     
     results = []
     files_data = {}
     
-    print(f"\nProcesando {len(excel_files)} archivos para {vehicle_id}")
-    
     for file_info in excel_files:
         try:
             filepath = file_info['filepath']
-            print(f"Procesando: {filepath}")
             
-            # Cargar y procesar
             df = load_excel_file(filepath)
             durations, excesses_info = detect_speed_excesses(df)
             metrics = calculate_driving_metrics(df, durations, excesses_info)
             
-            # Agregar info del vehículo
             metrics['vehicle_id'] = vehicle_id
             
             results.append(metrics)
@@ -289,16 +259,13 @@ def process_vehicle_files(vehicle_id, start_date=None, end_date=None, base_dir=N
             
         except Exception as e:
             print(f"Error procesando {file_info['filename']}: {e}")
-            import traceback
-            traceback.print_exc()
             continue
     
     return pd.DataFrame(results), files_data
 
-# FUNCIÓN LEGACY para compatibilidad con código anterior
 def process_all_files(directory=None):
     """
-    MANTENER para compatibilidad - procesa archivos en formato anterior
+    Función legacy para compatibilidad - procesa archivos en formato anterior
     """
     if directory is None:
         directory = config.DATA_DIR
@@ -309,10 +276,7 @@ def process_all_files(directory=None):
     excel_files = sorted(Path(directory).glob("*.xlsx"))
     
     if not excel_files:
-        print("No se encontraron archivos Excel en formato anterior")
         return pd.DataFrame(), {}
-    
-    print(f"\nProcesando {len(excel_files)} archivos en formato anterior")
     
     for filepath in excel_files:
         try:
@@ -335,7 +299,7 @@ def process_all_files(directory=None):
     return pd.DataFrame(results), files_data
 
 def calculate_real_distance(df, max_jump_km=1.0):
-    """Calcula distancia real usando GPS (SIN CAMBIOS)"""
+    """Calcula distancia real usando GPS"""
     if "Latitud" not in df.columns or "Longitud" not in df.columns:
         return None, []
         
